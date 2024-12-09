@@ -29,7 +29,6 @@ namespace TBESTScripting
 				HandleExceptions(programStart);
 
 				Application.Run();
-				OSGeo.GDAL.Gdal.GDALDestroyDriverManager();
 			}
 
 			catch (Exception ex)

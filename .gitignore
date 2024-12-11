@@ -11,8 +11,8 @@ obj/
 *.log
 
 #ignore directories
-AddInToDeploy/
-RidershipEstimationModel/ModelLinearEquation/ModelToDeploy/*.dll
+/SampleAddIn/AddInToDeploy/*.exe
+/RidershipEstimationModel/ModelLinearEquation/ModelToDeploy/*.dll
 
 # NuGet Packages
 packages/

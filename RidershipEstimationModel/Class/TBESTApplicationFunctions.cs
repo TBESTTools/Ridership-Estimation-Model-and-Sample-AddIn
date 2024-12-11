@@ -55,8 +55,9 @@ namespace RidershipEstimationModel
 				//string AppClientId = "";
 				//string OAuthRedirectUrl = "";
 				//string APIKey = "";
+				//bool ForceEsriLogin = false;
 
-				//if (await TBESTFramework.EsriLogin.ArcGISLoginPrompt.GetArcGISCredentials(Path.GetTempPath(), APIKey, AppClientId, OAuthRedirectUrl, ArcGISOnlineUrl,false) == false)
+				//if (await TBESTFramework.EsriLogin.ArcGISLoginPrompt.GetArcGISCredentials(Path.GetTempPath(), APIKey, AppClientId, OAuthRedirectUrl, ArcGISOnlineUrl,ForceEsriLogin) == false)
 				//{
 				//	MessageBox.Show("Unable to access the ArcGIS Portal licensing to run TBEST. Please verify that your organization has access to the ArcGIS Basic, Standard or Advanced license level.", "TBEST", MessageBoxButton.OK, MessageBoxImage.Exclamation);
 				//	Environment.Exit(0);

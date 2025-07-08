@@ -8,13 +8,14 @@ using TBESTFramework.Data.Network.Properties;
 using TBESTFramework.App;
 using TBESTFramework.RidershipForecasting;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace TBESTModelEquation
 {
 
-	public class TBESTEquations :MarshalByRefObject
+	public class TBESTEquations : MarshalByRefObject
 	{
-		public static bool CalculateBoardings(TransitPattern pRoute, SystemTimePeriod iTimePeriod, System.IO.StreamWriter oWrite, CoefficientList pcoefflist, bool boolDirect, TransitRoute pRouteGroup, ModelParameters pModelParameters, TBESTScenario pScenario)
+		public static async Task<bool> CalculateBoardings(TransitPattern pRoute, SystemTimePeriod iTimePeriod, System.IO.StreamWriter oWrite, CoefficientList pcoefflist, bool boolDirect, TransitRoute pRouteGroup, ModelParameters pModelParameters, TBESTScenario pScenario)
 		{
 			bool CalculateBoardingsRet = true;
 
@@ -37,10 +38,10 @@ namespace TBESTModelEquation
 
 				StopNetworkTimePeriodAttribute pTimePeriodAttributes;
 				TransitStop pTransitStop;
-				
+
 				double dEstimatedBoardings = 0d;
 				float sngDistanceRatio = 0f;
-				
+
 				double pRouteLength = pRoute.Segments.ReturnTotalLength();
 
 				var pDic = pTBESTEquation.GetReplicationTripReductionDictionary(pRouteGroup, pScenario, pRoute, iTimePeriod);
@@ -66,21 +67,21 @@ namespace TBESTModelEquation
 					{
 						if (!(pTimePeriodAttributes.IncomingTransferStops is not null && pTimePeriodAttributes.IncomingTransferStops.List.Count > 0))
 						{
-							oWrite.WriteLine(pTransitStop.StopID + "," + intTP + "," + "No Stops that are transferable,0");
+							await oWrite.WriteLineAsync(pTransitStop.StopID + "," + intTP + "," + "No Stops that are transferable,0");
 							continue;
 						}
 					}
 					pRepReduction = pDic[pTransitStop.StopName];
 					pRepCount = pDicLogReduction[pTransitStop.StopName];
-					pTBESTEquation.AddLinearValue("BUS-ONE", "1");
-					pTBESTEquation.AddDummyVariableValue("Route Type", pTBESTEquation.RouteTypeCoeff);
-					pTBESTEquation.AddDummyVariableValue("Technology", pTBESTEquation.TechnologyCoeff);
-					
+					await pTBESTEquation.AddLinearValue("BUS-ONE", "1");
+					await pTBESTEquation.AddDummyVariableValue("Route Type", pTBESTEquation.RouteTypeCoeff);
+					await pTBESTEquation.AddDummyVariableValue("Technology", pTBESTEquation.TechnologyCoeff);
+
 					if (pTransitStop.Amenities is not null)
-						pTBESTEquation.AddSpecialGeneratorstoEquation(pTransitStop);
-					
-					pTBESTEquation.AddLogSumValue("BUS-LNARRIVALS", pTimePeriodAttributes.Frequency.ToString());
-					pTBESTEquation.AddLinearValue("BUS-SHAREDIS", sngDistanceRatio.ToString());
+						await pTBESTEquation.AddSpecialGeneratorstoEquation(pTransitStop);
+
+					await pTBESTEquation.AddLogSumValue("BUS-LNARRIVALS", pTimePeriodAttributes.Frequency.ToString());
+					await pTBESTEquation.AddLinearValue("BUS-SHAREDIS", sngDistanceRatio.ToString());
 
 					double dO2TOT = 0d;
 					double dO3Emp = 0d;
@@ -110,11 +111,11 @@ namespace TBESTModelEquation
 									{
 										if (boolDirect == false & pOvalAtts.Population == 0)
 										{
-											oWrite.WriteLine(pTransitStop.StopID + "," + intTP + "," + "No O1 riders available,0");
+											await oWrite.WriteLineAsync(pTransitStop.StopID + "," + intTP + "," + "No O1 riders available,0");
 											goto nextstop;
 										}
-										pTBESTEquation.AddLogSumValue("BUS-LNO1", pOvalAtts.Population.ToString());
-										pTBESTEquation.AddLinearValue("BUS-O1", pOvalAtts.Population.ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO1", pOvalAtts.Population.ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O1", pOvalAtts.Population.ToString());
 										O1Estimated = pOvalAtts.Population;
 										break;
 									}
@@ -127,19 +128,19 @@ namespace TBESTModelEquation
 
 										if (boolDirect & dO2TOT == 0d)
 										{
-											oWrite.WriteLine(pTransitStop.StopID + "," + intTP + "," + "No destination accessibility,0");
+											await oWrite.WriteLineAsync(pTransitStop.StopID + "," + intTP + "," + "No destination accessibility,0");
 											goto nextstop;
 										}
 
-										pTBESTEquation.AddLogSumValue("BUS-LNO2POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
-										pTBESTEquation.AddLogSumValue("BUS-LNO2EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService).ToString());
-										pTBESTEquation.AddLogSumValue("BUS-LNO2SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployService).ToString());
-										pTBESTEquation.AddLogSumValue("BUS-LNO2COMM", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployCommercial).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO2POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO2EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO2SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployService).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO2COMM", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployCommercial).ToString());
 
 										if (dO2TOT > 0d)
-											pTBESTEquation.AddLogSumValue("BUS-LNO2PE", dO2TOT.ToString());
+											await pTBESTEquation.AddLogSumValue("BUS-LNO2PE", dO2TOT.ToString());
 
-										pTBESTEquation.AddLinearValue("BUS-O2EMP", (pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O2EMP", (pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService).ToString());
 										break;
 									}
 								case 3:
@@ -148,10 +149,10 @@ namespace TBESTModelEquation
 										dO3Pop = pOvalAtts.Population;
 										dO3Serv = pOvalAtts.EmployService;
 
-										pTBESTEquation.AddLinearValue("BUS-O3POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
-										pTBESTEquation.AddLinearValue("BUS-O3EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Emp).ToString());
-										pTBESTEquation.AddLogSumValue("BUS-LNO3SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployService).ToString());
-										pTBESTEquation.AddLogSumValue("BUS-LNO3POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O3POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O3EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Emp).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO3SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.EmployService).ToString());
+										await pTBESTEquation.AddLogSumValue("BUS-LNO3POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
 										break;
 									}
 
@@ -161,14 +162,14 @@ namespace TBESTModelEquation
 										dO4Pop = pOvalAtts.Population;
 										dO4Serv = pOvalAtts.EmployService;
 
-										pTBESTEquation.AddLinearValue("BUS-O4POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
-										pTBESTEquation.AddLinearValue("BUS-O4EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Emp).ToString());
-										pTBESTEquation.AddLinearValue("BUS-O4TOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Emp + dO4Pop).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O4POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O4EMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Emp).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O4TOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Emp + dO4Pop).ToString());
 										break;
 									}
 								case 5:
 									{
-										pTBESTEquation.AddLinearValue("BUS-O5POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O5POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
 										dO5Pop = pOvalAtts.Population;
 										dO5EmpTotal = pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService;
 										break;
@@ -178,22 +179,22 @@ namespace TBESTModelEquation
 										dO6Pop = pOvalAtts.Population;
 										dO6Emp = pOvalAtts.EmployCommercial + pOvalAtts.EmployIndustrial + pOvalAtts.EmployService;
 										dO6Serv = pOvalAtts.EmployService;
-										pTBESTEquation.AddLinearValue("BUS-O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
+										await pTBESTEquation.AddLinearValue("BUS-O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, pOvalAtts.Population).ToString());
 										break;
 									}
 								case 10:
 									{
-										pTBESTEquation.AddLinearValue("RAIL-O2PNREMP", pOvalAtts.Population.ToString());
+										await pTBESTEquation.AddLinearValue("RAIL-O2PNREMP", pOvalAtts.Population.ToString());
 										break;
 									}
 							}
 						}
-						pTBESTEquation.AddLinearValue("BUS-O3O4O6", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Emp + dO4Emp - dO6Emp).ToString());
-						pTBESTEquation.AddLinearValue("BUS-O3O4O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Pop + dO4Pop - dO6Pop).ToString());
-						pTBESTEquation.AddLogSumValue("BUS-LNO3O4O6SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Serv + dO4Serv - dO6Serv).ToString());
-						pTBESTEquation.AddLogSumValue("BUS-LNO3O4O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Pop + dO4Pop - dO6Pop).ToString());
-						pTBESTEquation.AddLogSumValue("BUS-LOGO2O5", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO2Pop - dO5Pop + (dO2EmpTotal - dO5EmpTotal)).ToString());
-						pTBESTEquation.AddLinearValue("BUS-O4O6TOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Pop - dO6Pop + (dO4Emp - dO6Emp)).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-O3O4O6", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Emp + dO4Emp - dO6Emp).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-O3O4O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Pop + dO4Pop - dO6Pop).ToString());
+						await pTBESTEquation.AddLogSumValue("BUS-LNO3O4O6SERV", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Serv + dO4Serv - dO6Serv).ToString());
+						await pTBESTEquation.AddLogSumValue("BUS-LNO3O4O6POP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO3Pop + dO4Pop - dO6Pop).ToString());
+						await pTBESTEquation.AddLogSumValue("BUS-LOGO2O5", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO2Pop - dO5Pop + (dO2EmpTotal - dO5EmpTotal)).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-O4O6TOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, dO4Pop - dO6Pop + (dO4Emp - dO6Emp)).ToString());
 
 					}
 
@@ -201,57 +202,57 @@ namespace TBESTModelEquation
 
 					float[] intTotalParcelTrips = TBESTRidershipForecasting.InitiateModel.mParcelOvaluesTotalList[pTransitStop.StopIndex - 1];
 					var pParelItemTotals = TBESTRidershipForecasting.InitiateModel.mParcelItemsTotalList[pTransitStop.StopIndex - 1];
-					pTBESTEquation.AddLogSumValue("LogO2TRIPS_NOCOMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)intTotalParcelTrips[1]).ToString())).ToString());
-					pTBESTEquation.AddLogSumValue("LOG_O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble((intTotalParcelTrips[3] + 0.00001d).ToString())).ToString());
-					pTBESTEquation.AddLogSumValue("LOG_O2TRIPSTOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[1] + intTotalParcelTrips[4])).ToString())).ToString());
-					pTBESTEquation.AddLinearValue("O2TRIPSTOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[1] + intTotalParcelTrips[4])).ToString())).ToString());
-					pTBESTEquation.AddLogSumValue("BUS-LOGO6O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[3] - intTotalParcelTrips[5]) + 0.00001d).ToString())).ToString());
-					pTBESTEquation.AddLinearValue("O2TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(intTotalParcelTrips[1].ToString())).ToString());
-					pTBESTEquation.AddLinearValue("O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(intTotalParcelTrips[3].ToString())).ToString());
-					pTBESTEquation.AddLogSumValue("LOG_BUFFERTRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, (double)(pParelItemTotals.Trips * sngRatioOriginShareReduction)).ToString());
-					pTBESTEquation.AddLinearValue("DW_DENSITY", Convert.ToString(pParelItemTotals.LandArea == 0L ? 0 : pParelItemTotals.DwellingUnits / pParelItemTotals.LandArea));
+					await pTBESTEquation.AddLogSumValue("LogO2TRIPS_NOCOMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)intTotalParcelTrips[1]).ToString())).ToString());
+					await pTBESTEquation.AddLogSumValue("LOG_O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble((intTotalParcelTrips[3] + 0.00001d).ToString())).ToString());
+					await pTBESTEquation.AddLogSumValue("LOG_O2TRIPSTOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[1] + intTotalParcelTrips[4])).ToString())).ToString());
+					await pTBESTEquation.AddLinearValue("O2TRIPSTOTAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[1] + intTotalParcelTrips[4])).ToString())).ToString());
+					await pTBESTEquation.AddLogSumValue("BUS-LOGO6O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(((double)(intTotalParcelTrips[3] - intTotalParcelTrips[5]) + 0.00001d).ToString())).ToString());
+					await pTBESTEquation.AddLinearValue("O2TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(intTotalParcelTrips[1].ToString())).ToString());
+					await pTBESTEquation.AddLinearValue("O4TRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(intTotalParcelTrips[3].ToString())).ToString());
+					await pTBESTEquation.AddLogSumValue("LOG_BUFFERTRIPS", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, (double)(pParelItemTotals.Trips * sngRatioOriginShareReduction)).ToString());
+					await pTBESTEquation.AddLinearValue("DW_DENSITY", Convert.ToString(pParelItemTotals.LandArea == 0L ? 0 : pParelItemTotals.DwellingUnits / pParelItemTotals.LandArea));
 
 					var pPopEmp = pTransitStop.PopEmpIndicators;
 
 					if (pPopEmp is not null)
 					{
-						pTBESTEquation.AddLinearValue("BUS-TOTALPOP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.TotalPopulation.ToString())).ToString());
-						pTBESTEquation.AddLinearValue("BUS-TOTALHH", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.TotalHouseHolds.ToString())).ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHBLACK", pPopEmp.Black.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHHISPANIC", pPopEmp.Hispanic.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHPOPLT16", pPopEmp.LT16.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHARE_MU", pPopEmp.HHMultiFamilyDU.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHFORE", pPopEmp.Foreign.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHHHCHIL", pPopEmp.ShareHHwChildren.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHFEMALE", pPopEmp.Female.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SHWORKERS", pPopEmp.Worker.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-TOTALPOP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.TotalPopulation.ToString())).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-TOTALHH", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.TotalHouseHolds.ToString())).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHBLACK", pPopEmp.Black.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHHISPANIC", pPopEmp.Hispanic.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHPOPLT16", pPopEmp.LT16.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHARE_MU", pPopEmp.HHMultiFamilyDU.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHFORE", pPopEmp.Foreign.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHHHCHIL", pPopEmp.ShareHHwChildren.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHFEMALE", pPopEmp.Female.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SHWORKERS", pPopEmp.Worker.ToString());
 
 						if (pPopEmp.AvgHHIncome > 0)
 						{
-							pTBESTEquation.AddLogSumValue("BUS-LNHHINC", pPopEmp.AvgHHIncome.ToString());
+							await pTBESTEquation.AddLogSumValue("BUS-LNHHINC", pPopEmp.AvgHHIncome.ToString());
 						}
 
 						double dTotEmp = (double)(pPopEmp.CommercialEmployment + pPopEmp.IndustrialEmployment + pPopEmp.ServiceEmployment);
 
-						pTBESTEquation.AddLinearValue("BUS-AVGHHINC", pPopEmp.AvgHHIncome.ToString());
-						pTBESTEquation.AddLinearValue("BUS-ZEROVEHHH", pPopEmp.ZeroVehHH.ToString());
-						pTBESTEquation.AddLinearValue("BUS-SERVE", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.ServiceEmployment.ToString())).ToString());
-						pTBESTEquation.AddLinearValue("SHARE_SERVEMP", Convert.ToString(dTotEmp == 0d ? 0d : (double)pPopEmp.ServiceEmployment / dTotEmp));
-						pTBESTEquation.AddLinearValue("SHARE_COMMEMP", Convert.ToString(dTotEmp == 0d ? 0 : (double)pPopEmp.CommercialEmployment / dTotEmp));
-						pTBESTEquation.AddLinearValue("BUS-COMMERCIAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.CommercialEmployment.ToString())).ToString());
-						pTBESTEquation.AddLinearValue("BUS-TOTEMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(dTotEmp.ToString())).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-AVGHHINC", pPopEmp.AvgHHIncome.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-ZEROVEHHH", pPopEmp.ZeroVehHH.ToString());
+						await pTBESTEquation.AddLinearValue("BUS-SERVE", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.ServiceEmployment.ToString())).ToString());
+						await pTBESTEquation.AddLinearValue("SHARE_SERVEMP", Convert.ToString(dTotEmp == 0d ? 0d : (double)pPopEmp.ServiceEmployment / dTotEmp));
+						await pTBESTEquation.AddLinearValue("SHARE_COMMEMP", Convert.ToString(dTotEmp == 0d ? 0 : (double)pPopEmp.CommercialEmployment / dTotEmp));
+						await pTBESTEquation.AddLinearValue("BUS-COMMERCIAL", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(pPopEmp.CommercialEmployment.ToString())).ToString());
+						await pTBESTEquation.AddLinearValue("BUS-TOTEMP", pTBESTEquation.ApplyReplication(iTimePeriod, pRepCount, pRepReduction, Convert.ToDouble(dTotEmp.ToString())).ToString());
 
 						if (boolDirect & dTotEmp + (double)pPopEmp.TotalPopulation == 0d)
 						{
-							oWrite.WriteLine(pTransitStop.StopID + "," + intTP + "," + "No population or employment in origin buffer,0");
+							await oWrite.WriteLineAsync(pTransitStop.StopID + "," + intTP + "," + "No population or employment in origin buffer,0");
 							continue;
 						}
 
-						pTBESTEquation.AddLogSumValue("LOG_BUFFERPE", ((dTotEmp + (double)pPopEmp.TotalPopulation) * (double)sngRatioOriginShareReduction).ToString());
+						await pTBESTEquation.AddLogSumValue("LOG_BUFFERPE", ((dTotEmp + (double)pPopEmp.TotalPopulation) * (double)sngRatioOriginShareReduction).ToString());
 					}
 
 
-					dEstimatedBoardings = pTBESTEquation.CalculateEstimatedBoardings(pTimePeriodAttributes);
+					dEstimatedBoardings = await pTBESTEquation.CalculateEstimatedBoardings(pTimePeriodAttributes);
 
 
 				nextstop:
@@ -280,7 +281,7 @@ namespace TBESTModelEquation
 						if (dEstimatedBoardings > lngArrivalCap)
 						{
 							dEstimatedBoardings = lngArrivalCap;
-							oWrite.WriteLine(pTransitStop.StopID + "," + intTP + "," + "Constrained Boardings," + Math.Round(dEstimatedBoardings, 2).ToString());
+							await oWrite.WriteLineAsync(pTransitStop.StopID + "," + intTP + "," + "Constrained Boardings," + Math.Round(dEstimatedBoardings, 2).ToString());
 						}
 
 						pTimePeriodAttributes.DirectBoardings = (float)dEstimatedBoardings;
@@ -303,7 +304,7 @@ namespace TBESTModelEquation
 			return CalculateBoardingsRet;
 		}
 
-		public static bool PopulateBoardings(SystemTimePeriod iTimePeriod, System.IO.StreamWriter owrite, TBESTScenario mModelScenario, ModelParameters mScenarioNetworkParamters)
+		public static async Task<bool> PopulateBoardings(SystemTimePeriod iTimePeriod, System.IO.StreamWriter owrite, TBESTScenario mModelScenario, ModelParameters mScenarioNetworkParamters)
 		{
 			bool PopulateBoardingsRet = true;
 
@@ -330,9 +331,9 @@ namespace TBESTModelEquation
 				for (int i = 0, loopTo = mModelScenario.RoutePatterns.List.Count - 1; i <= loopTo; i++)
 				{
 					pRoute = mModelScenario.RoutePatterns.List[i];
-				
+
 					pRouteGroup = mModelScenario.Routes.GetTransitRoute(pRoute.ParentTransitRouteID);
-			
+
 					nCapacity = pRouteGroup.VehicleSeats;
 					for (int a = 0, loopTo1 = pRoute.PatternTransitStops.List.Count - 1; a <= loopTo1; a++)
 					{
@@ -401,7 +402,7 @@ namespace TBESTModelEquation
 						dTransfer *= sngAdjustmentFactor;
 						dBoardings *= sngAdjustmentFactor;
 
-						owrite.WriteLine(mModelScenario.ScenarioID + "," + pTS.StopID + "," + intTP + "," + dBoardings + "," + dTransfer + "," + ddirect + "," + dArrivals + "," + iTransferOpps + "," + intInboundTransfers);
+						await owrite.WriteLineAsync(mModelScenario.ScenarioID + "," + pTS.StopID + "," + intTP + "," + dBoardings + "," + dTransfer + "," + ddirect + "," + dArrivals + "," + iTransferOpps + "," + intInboundTransfers);
 
 					}
 				}
@@ -420,7 +421,7 @@ namespace TBESTModelEquation
 
 	}
 
-	internal class TBESTModelEquationHelper: MarshalByRefObject
+	internal class TBESTModelEquationHelper : MarshalByRefObject
 	{
 		private System.IO.StreamWriter oWrite;
 		private TransitStop mTransitStop;
@@ -520,11 +521,11 @@ namespace TBESTModelEquation
 
 			get
 			{
-				
+
 				if (mTechCoeff is null)
 				{
 					{
-			
+
 						switch (mRouteGroup.TechnologyType)
 						{
 							case TransitModeType.Bus:
@@ -574,11 +575,11 @@ namespace TBESTModelEquation
 
 			get
 			{
-			
+
 				if (mRouteTypeCoeff is null)
 				{
 					{
-			
+
 						switch (mRouteGroup.RouteType)
 						{
 							case TransitRouteType.Radial:
@@ -639,7 +640,7 @@ namespace TBESTModelEquation
 				return mRouteTypeCoeff;
 			}
 		}
-		public void AddSpecialGeneratorstoEquation(TransitStop pTransitStop)
+		public async Task AddSpecialGeneratorstoEquation(TransitStop pTransitStop)
 		{
 
 			for (int a = 0, loopTo = pTransitStop.Amenities.List.Count - 1; a <= loopTo; a++)
@@ -649,48 +650,48 @@ namespace TBESTModelEquation
 					case 1:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("University");
+								await AddSpecialGeneratorValue("University");
 							break;
 						}
 					case 2:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("MILITARY");
+								await AddSpecialGeneratorValue("MILITARY");
 							break;
 						}
 					case 3:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("MALLS");
+								await AddSpecialGeneratorValue("MALLS");
 							break;
 						}
 					case 4:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("EventCenter");
+								await AddSpecialGeneratorValue("EventCenter");
 							break;
 						}
 					case 5:
 						{
 							if (mRouteGroup.RouteType == TransitRouteType.Rapid)
-								AddLinearValue("RAPID-ParkingSpaces", pTransitStop.ParknRideSpaces.ToString());
+								await AddLinearValue("RAPID-ParkingSpaces", pTransitStop.ParknRideSpaces.ToString());
 							if (mRouteGroup.RouteType == TransitRouteType.Express)
-								AddLinearValue("EXPRESS-ParkingSpaces", pTransitStop.ParknRideSpaces.ToString());
-							AddSpecialGeneratorValue("ParknRide");
+								await AddLinearValue("EXPRESS-ParkingSpaces", pTransitStop.ParknRideSpaces.ToString());
+							await AddSpecialGeneratorValue("ParknRide");
 							break;
 						}
 					case 6:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("AIRPORT");
+								await AddSpecialGeneratorValue("AIRPORT");
 							else
-								AddSpecialGeneratorValue("RAIL-AIRPORT");
+								await AddSpecialGeneratorValue("RAIL-AIRPORT");
 							break;
 						}
 					case 7:
 						{
 							if (mRouteGroup.TechnologyType == TransitModeType.Bus)
-								AddSpecialGeneratorValue("RECPARK");
+								await AddSpecialGeneratorValue("RECPARK");
 							break;
 						}
 					case 8:
@@ -702,16 +703,16 @@ namespace TBESTModelEquation
 
 			}
 		}
-		public void AddDummyVariableValue(string strDummaryVariableGroup, ModelCoefficient pcoeff)
+		public async Task AddDummyVariableValue(string strDummaryVariableGroup, ModelCoefficient pcoeff)
 		{
 			try
 			{
 
-				double dblDummyCoeffValue = pcoeff.CoefficientTimePeriods.List[mTimePeriod].CoeffValue;
+				double dblDummyCoeffValue = pcoeff is null ? 0d : pcoeff.CoefficientTimePeriods.List[mTimePeriod].CoeffValue;
 				if (dblDummyCoeffValue.ToString() != "0")
 				{
 					dCummulativeLinearBoardingsValue += dblDummyCoeffValue;
-					oWrite.WriteLine(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + strDummaryVariableGroup + "," + pcoeff.Description + "," + dblDummyCoeffValue.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
+					await oWrite.WriteLineAsync(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + strDummaryVariableGroup + "," + pcoeff.Description + "," + dblDummyCoeffValue.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
 				}
 			}
 			catch (Exception)
@@ -719,7 +720,7 @@ namespace TBESTModelEquation
 
 			}
 		}
-		public void AddLogSumValue(string strCoeffVariableKey, string strVariableValue)
+		public async Task AddLogSumValue(string strCoeffVariableKey, string strVariableValue)
 		{
 			if (mCoeffList.ReturnCoefficient(strCoeffVariableKey) is null || mCoeffList.ReturnCoefficient(strCoeffVariableKey).CoefficientTimePeriods is null)
 			{
@@ -733,12 +734,12 @@ namespace TBESTModelEquation
 				if (dblCoeff.ToString() != "0" & Convert.ToDouble(strVariableValue) > 0d)
 				{
 					dCummulativeLinearBoardingsValue = dCummulativeLinearBoardingsValue + Math.Log(Convert.ToDouble(strVariableValue)) * dblCoeff;
-					oWrite.WriteLine(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + "," + strVariableValue + "," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
+					await oWrite.WriteLineAsync(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + "," + strVariableValue + "," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
 				}
 			}
 
 		}
-		public void AddLinearValue(string strCoeffVariableKey, string strVariableValue)
+		public async Task AddLinearValue(string strCoeffVariableKey, string strVariableValue)
 		{
 			if (mCoeffList.ReturnCoefficient(strCoeffVariableKey) is null || mCoeffList.ReturnCoefficient(strCoeffVariableKey).CoefficientTimePeriods is null)
 			{
@@ -751,17 +752,17 @@ namespace TBESTModelEquation
 				if (dblCoeff.ToString() != "0")
 				{
 					dCummulativeLinearBoardingsValue = dCummulativeLinearBoardingsValue + Convert.ToDouble(strVariableValue) * dblCoeff;
-					oWrite.WriteLine(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + "," + strVariableValue + "," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
+					await oWrite.WriteLineAsync(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + "," + strVariableValue + "," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
 				}
 			}
-		
+
 		}
-		public void AddSpecialGeneratorValue(string strCoeffVariableKey)
+		public async Task AddSpecialGeneratorValue(string strCoeffVariableKey)
 		{
 			if (mCoeffList.ReturnCoefficient(strCoeffVariableKey) is null || mCoeffList.ReturnCoefficient(strCoeffVariableKey).CoefficientTimePeriods is null)
 			{
 				//MessageBox.Show("Unable to locate the following coefficient variable key: " + strCoeffVariableKey + ".  Please revise the coefficient key values.", MsgBoxStyle.Critical, "TBEST Model Equation");
-			
+
 			}
 			else
 			{
@@ -769,12 +770,12 @@ namespace TBESTModelEquation
 				if (dblCoeff.ToString() != "0")
 				{
 					dCummulativeLinearBoardingsValue += dblCoeff;
-					oWrite.WriteLine(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + ",1," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
+					await oWrite.WriteLineAsync(mStopID.ToString() + "," + (mTimePeriod + 1).ToString() + "," + mCoeffList.ReturnCoefficient(strCoeffVariableKey).Description + ",1," + dblCoeff.ToString() + "," + Math.Round(dCummulativeLinearBoardingsValue, 2).ToString());
 				}
 			}
-			
+
 		}
-		public double CalculateEstimatedBoardings(StopNetworkTimePeriodAttribute pTimePeriodAttributes)
+		public async Task<double> CalculateEstimatedBoardings(StopNetworkTimePeriodAttribute pTimePeriodAttributes)
 		{
 
 			double dEstimatedBoardings = Math.Exp(dCummulativeLinearBoardingsValue);
@@ -784,11 +785,11 @@ namespace TBESTModelEquation
 			if (mTransitStop.TimePoint.Trim() == "T")
 			{
 				dEstimatedBoardings = 0d;
-				oWrite.WriteLine(mStopID + "," + (mTimePeriod + 1).ToString() + "," + "TimePoint = T. Stop only has alightings. 0 Boardings");
+				await oWrite.WriteLineAsync(mStopID + "," + (mTimePeriod + 1).ToString() + "," + "TimePoint = T. Stop only has alightings. 0 Boardings");
 			}
 			else
 			{
-				oWrite.WriteLine(mStopID + "," + (mTimePeriod + 1).ToString() + "," + "Boardings," + Math.Round(dEstimatedBoardings, 2).ToString());
+				await oWrite.WriteLineAsync(mStopID + "," + (mTimePeriod + 1).ToString() + "," + "Boardings," + Math.Round(dEstimatedBoardings, 2).ToString());
 			}
 			return dEstimatedBoardings;
 		}
@@ -906,7 +907,6 @@ namespace TBESTModelEquation
 
 				}
 			}
-
 			catch (Exception)
 			{
 			}

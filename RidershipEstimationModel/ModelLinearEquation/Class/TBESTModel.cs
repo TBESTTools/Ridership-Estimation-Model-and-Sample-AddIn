@@ -22,6 +22,7 @@ using static TBESTFramework.RidershipForecasting.ModelEquationSettings.ModelPara
 using static TBESTFramework.Utilities.SQLiteFunctions;
 using static TBESTFramework.Utilities.NetworkUtilities;
 using static TBESTFramework.Utilities.FileFunctions;
+using System.IO;
 
 namespace TBESTModelEquation.TBESTRidershipForecasting
 {
@@ -41,11 +42,11 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 	public class TBESTModelCode
 	{
 		private ModelSettings mSettings;
-		private System.IO.StreamWriter m_objOvalueTextStream;
-		private System.IO.StreamWriter m_objBoardingsTS;
-		private System.IO.StreamWriter m_objTransfers;
-		private System.IO.StreamWriter m_objParcelOvalueTextStream;
-		private System.IO.StreamWriter m_objParcelGroupOvalueTextStream;
+		private StreamWriter m_objOvalueTextStream;
+		private StreamWriter m_objBoardingsTS;
+		private StreamWriter m_objTransfers;
+		private StreamWriter m_objParcelOvalueTextStream;
+		private StreamWriter m_objParcelGroupOvalueTextStream;
 		public SQLiteConnection m_SQLConnection;
 		private CSparseMatrix m_ImpedanceSparseMatrix;
 		private CSparseMatrix m_DecaySparseMatrix;
@@ -163,9 +164,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				pModelSettings.CancelForm.Close();
 
 			m_DecayMatrixPath = mOpenScenario.LocalEditPath + @"\DecayMatrix";
-			if (!System.IO.Directory.Exists(m_DecayMatrixPath))
+			if (!Directory.Exists(m_DecayMatrixPath))
 			{
-				System.IO.Directory.CreateDirectory(m_DecayMatrixPath);
+				Directory.CreateDirectory(m_DecayMatrixPath);
 			}
 
 			pModelSettings.ModelScenario = mOpenScenario;
@@ -182,13 +183,13 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 			ModelRunRet = await RunTBESTModel(pModelSettings);
 			pModelSettings.CancelForm?.Close();
-			
+
 			return ModelRunRet;
 		}
 		public ModelSettings ScenarioModelSettings
 		{
-			get	{ return mSettings; }
-			set	{mSettings = value;}
+			get { return mSettings; }
+			set { mSettings = value; }
 		}
 
 		private void ModelAccessiblity(TransitPattern pRoute, TransitStop pTransitStop, SystemTimePeriod iTimePeriod)
@@ -202,7 +203,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 			{
 				if (pTransitStop is null)
 					return;
-				
+
 				pRouteGroup = mSettings.ModelScenario.Routes.List[pRoute.ParentRouteIndex];
 				dImpedance = (float)m_FareLookUp.GetFareImpedance(pRouteGroup, true);
 
@@ -227,7 +228,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				ProcessStops.mFareLookup = m_FareLookUp;
 
 				pModelStopProcess_1 = new ModelStopProcess()
-				{ 
+				{
 					Impedance = dImpedance,
 					OriginIndex = pTransitStop.StopIndex,
 					RoutePattern = pRoute,
@@ -240,7 +241,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					CurrentOriginaWaitTime = (int)Math.Round(dFirstWaitTime),
 					TripLengthSummary = pModeDecaySummary
 				};
-				
+
 				pstopa.ProcessStop(pModelStopProcess_1, mSettings.ModelScenario, mSettings.TBESTModelParameters);
 				pModelStopProcess_1 = null;
 				pstopa = null;
@@ -323,9 +324,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 		}
 
-		private object BuildIncomingAccessibleStops(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
+		private async Task<object> BuildIncomingAccessibleStops(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
 		{
-			object BuildIncomingAccessibleStopsRet =  null;
+			object BuildIncomingAccessibleStopsRet = null;
 
 			int i;
 			int b;
@@ -347,14 +348,13 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 			var lAPCAccessiblity = default(float);
 			StopNetworkTimePeriodAttribute nSTPAOrigin = pOriginTransitStop.TimePeriods.GetTimePeriodAttribute(iTimePeriod);
 
-
 			try
 			{
 				NeighborStop pNeighborStop;
 				i = pOriginTransitStop.StopIndex;
 				pNeighborStop = new NeighborStop();
 				pNeighborStop.StopIndex = pOriginTransitStop.StopIndex;
-				
+
 				pLocalNeighbors.List.Add(pNeighborStop);
 
 				if (mSettings.TBESTModelParameters.EmployO1FilteringMethod)
@@ -434,26 +434,26 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 				if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 				{
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 1, " + (long)Math.Round(lUpstreamBoardings) + ",0,0,0");
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 7 , " + (long)Math.Round(lAPCAccessiblity) + ",0,0,0");
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 11 , " + (long)Math.Round(lBusLoadAccessibility) + ",0,0,0");
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 12 , " + (long)Math.Round(lBusLoadAccessibilityObserbved) + ",0,0,0");
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 1, " + (long)Math.Round(lUpstreamBoardings) + ",0,0,0");
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 7 , " + (long)Math.Round(lAPCAccessiblity) + ",0,0,0");
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 11 , " + (long)Math.Round(lBusLoadAccessibility) + ",0,0,0");
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginID.ToString() + ", " + ((int)iTimePeriod + 1).ToString() + ", 12 , " + (long)Math.Round(lBusLoadAccessibilityObserbved) + ",0,0,0");
 				}
 				nSTPAOrigin.OnBoardLoad = (int)Math.Round(lBusLoadAccessibility);
 
 				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue();
 
-					pOvalues.Population = (int)Math.Round(lUpstreamBoardings);
-					pOvalues.EmployService = 0;
-					pOvalues.EmployIndustrial = 0;
-					pOvalues.EmployCommercial = 0;
-					pOvalues.OValue = 1;
+				pOvalues.Population = (int)Math.Round(lUpstreamBoardings);
+				pOvalues.EmployService = 0;
+				pOvalues.EmployIndustrial = 0;
+				pOvalues.EmployCommercial = 0;
+				pOvalues.OValue = 1;
 
-					if (nSTPAOrigin.OValues is null)
-						pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues = new NetworkOpportunitySEValues();
+				if (nSTPAOrigin.OValues is null)
+					pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues = new NetworkOpportunitySEValues();
 
 				pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues.List.Add(pOvalues);
-				
+
 			}
 
 			catch (Exception ex)
@@ -496,7 +496,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							pTransitStop = mStopList[pTransferStop.StopIndex - 1];
 							if (pTransitStop.Interlined)
 							{
-								if (NetworkAccessibleFunctions.AreStopsInterlined(mSettings.ModelScenario,pOriginTransitStop.StopID, pTransferStop.StopID))
+								if (NetworkAccessibleFunctions.AreStopsInterlined(mSettings.ModelScenario, pOriginTransitStop.StopID, pTransferStop.StopID))
 								{
 									if (pTransitStop.TimePeriods.List[(int)iTimePeriod].Frequency != 0)
 									{
@@ -672,7 +672,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 				pDestParcelItem = InitiateModel.mParcelItemsTotalList[pTransitStopM.StopIndex - 1];
 
-				pParcelItem = new ParcelItem() 
+				pParcelItem = new ParcelItem()
 				{
 					DORCode = pDestParcelItem.DORCode,
 					Population = pDestParcelItem.Population * sngExpImpedance * 1f,
@@ -685,7 +685,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				mParcelOverlappedO4.AddtoSummary(pParcelItem, mSettings.ModelScenario.TransitSystem.ParcelTripRates, true);
 				if (iO2Impedance > 0)
 					mParcelOverlappedO6.AddtoSummary(pParcelItem, mSettings.ModelScenario.TransitSystem.ParcelTripRates, true);
-	
+
 				pParcelItem = null;
 			}
 		}
@@ -750,7 +750,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 			return intLocationArrayTotals;
 		}
 
-		private object BuildAccessibleStopsO4(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
+		private async Task<object> BuildAccessibleStopsO4(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
 		{
 			object BuildAccessibleStopsO4Ret = null;
 			string intTP = ((int)iTimePeriod + 1).ToString();
@@ -766,7 +766,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				ParcelItem pItem;
 				if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 				{
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", " + k.ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.Population)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.IndustrialEmployment)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.CommercialEmployment)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.ServiceEmployment)).ToString());
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", " + k.ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.Population)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.IndustrialEmployment)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.CommercialEmployment)).ToString() + ", " + (Math.Round(mPopEmpOverlappedO4.ServiceEmployment)).ToString());
 				}
 
 				if (mSettings.TBESTModelParameters.RunParcelSEAssign)
@@ -777,25 +777,25 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						if (pItem.GroupCode > 0)
 						{
 							if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-								m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + pItem.GroupCode.ToString() + "," + "0," + pItem.Population.ToString() + "," + Convert.ToInt32(pItem.Trips).ToString() + "," + pItem.DwellingUnits.ToString() + ",0");
+								await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + pItem.GroupCode.ToString() + "," + "0," + pItem.Population.ToString() + "," + Convert.ToInt32(pItem.Trips).ToString() + "," + pItem.DwellingUnits.ToString() + ",0");
 
 							pParcelGroupSummaryItems.AddtoSummary(mParcelOverlappedO4.List[zz], pr, false);
 						}
-						
+
 					}
 					if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 					{
 						for (int zz = 0, loopTo1 = pParcelGroupSummaryItems.List.Count - 1; zz <= loopTo1; zz++)
 						{
 							pItem = pParcelGroupSummaryItems.List[zz];
-							m_objParcelGroupOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + pItem.GroupCode.ToString() + ",0," + pItem.Population.ToString() + "," + Convert.ToInt32(pItem.Trips).ToString() + "," + pItem.DwellingUnits.ToString() + ",0");
+							await m_objParcelGroupOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + pItem.GroupCode.ToString() + ",0," + pItem.Population.ToString() + "," + Convert.ToInt32(pItem.Trips).ToString() + "," + pItem.DwellingUnits.ToString() + ",0");
 						}
 					}
 				}
 
 				var pParcelOvalue = new NetworkOpportuntiyParcel();
-				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue(); 
-	
+				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue();
+
 				if (pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues is null)
 					pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues = new NetworkOpportunitySEValues();
 
@@ -830,7 +830,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].ParcelOvalues.List.Add(pParcelOvalue);
 					}
 				}
-				
+
 			}
 			catch (Exception ex)
 			{
@@ -843,7 +843,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 			return BuildAccessibleStopsO4Ret;
 		}
 
-		private object BuildAccessibleStopsO6(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
+		private async Task<object> BuildAccessibleStopsO6(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
 		{
 			object BuildAccessibleStopsO6Ret = null;
 			string intTP = ((int)iTimePeriod + 1).ToString();
@@ -856,7 +856,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				ParcelItem item;
 				if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 				{
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", " + k.ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.Population)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.IndustrialEmployment)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.CommercialEmployment)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.ServiceEmployment)).ToString());
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", " + k.ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.Population)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.IndustrialEmployment)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.CommercialEmployment)).ToString() + ", " + ((long)Math.Round(mPopEmpOverlappedO6.ServiceEmployment)).ToString());
 				}
 
 				if (mSettings.TBESTModelParameters.RunParcelSEAssign)
@@ -867,7 +867,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						if (item.GroupCode > 0)
 						{
 							if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-								m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + item.GroupCode.ToString() + "," + "0," + item.Population.ToString() + "," + Convert.ToInt32(item.Trips).ToString() + "," + item.DwellingUnits.ToString() + ",0");
+								await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + item.GroupCode.ToString() + "," + "0," + item.Population.ToString() + "," + Convert.ToInt32(item.Trips).ToString() + "," + item.DwellingUnits.ToString() + ",0");
 
 							pParcelGroupSummaryItems.AddtoSummary(mParcelOverlappedO6.List[zz], mSettings.ModelScenario.TransitSystem.ParcelTripRates, false);
 						}
@@ -878,18 +878,18 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						for (int zz = 0, loopTo1 = pParcelGroupSummaryItems.List.Count - 1; zz <= loopTo1; zz++)
 						{
 							item = pParcelGroupSummaryItems.List[zz];
-							m_objParcelGroupOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + item.GroupCode.ToString() + ",0," + item.Population.ToString() + "," + Convert.ToInt32(item.Trips).ToString() + "," + item.DwellingUnits.ToString() + ",0");
+							await m_objParcelGroupOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + item.GroupCode.ToString() + ",0," + item.Population.ToString() + "," + Convert.ToInt32(item.Trips).ToString() + "," + item.DwellingUnits.ToString() + ",0");
 						}
 					}
 				}
 
 				var pParcelOvalue = new NetworkOpportuntiyParcel();
-					
+
 				if (pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues is null)
 					pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues = new NetworkOpportunitySEValues();
 
-				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue() 
-				{ 
+				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue()
+				{
 					Population = (int)Math.Round(mPopEmpOverlappedO6.Population),
 					EmployService = (int)Math.Round(mPopEmpOverlappedO6.ServiceEmployment),
 					EmployIndustrial = (int)Math.Round(mPopEmpOverlappedO6.IndustrialEmployment),
@@ -922,7 +922,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].ParcelOvalues.List.Add(pParcelOvalue);
 					}
 				}
-				
+
 			}
 			catch (Exception ex)
 			{
@@ -934,7 +934,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 			return BuildAccessibleStopsO6Ret;
 		}
-		private object BuildAccessibleStopsO2(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
+		private async Task<object> BuildAccessibleStopsO2(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
 		{
 			object BuildAccessibleStopsO2Ret = null;
 			byte iImpedance;
@@ -1026,21 +1026,23 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				string intTP = ((int)iTimePeriod + 1).ToString();
 				if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 				{
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", " + k + ", " + 
-						(long)Math.Round(pPopEmpNonOverlapped.Population + pPopEmpOverlapped.Population) + ", " + (long)Math.Round(pPopEmpNonOverlapped.IndustrialEmployment + 
-						pPopEmpOverlapped.IndustrialEmployment) + ", " + (long)Math.Round(pPopEmpNonOverlapped.CommercialEmployment + pPopEmpOverlapped.CommercialEmployment) + ", " + 
+
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", " + k + ", " +
+						(long)Math.Round(pPopEmpNonOverlapped.Population + pPopEmpOverlapped.Population) + ", " + (long)Math.Round(pPopEmpNonOverlapped.IndustrialEmployment +
+						pPopEmpOverlapped.IndustrialEmployment) + ", " + (long)Math.Round(pPopEmpNonOverlapped.CommercialEmployment + pPopEmpOverlapped.CommercialEmployment) + ", " +
 						(long)Math.Round(pPopEmpNonOverlapped.ServiceEmployment + pPopEmpOverlapped.ServiceEmployment));
 
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ",5, " + 
-						(long)Math.Round(pPopEmpOverlapped.Population) + ", " + (long)Math.Round(pPopEmpOverlapped.IndustrialEmployment) + ", " + 
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ",5, " +
+						(long)Math.Round(pPopEmpOverlapped.Population) + ", " + (long)Math.Round(pPopEmpOverlapped.IndustrialEmployment) + ", " +
 						(long)Math.Round(pPopEmpOverlapped.CommercialEmployment) + ", " + (long)Math.Round(pPopEmpOverlapped.ServiceEmployment));
 
 					if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 					{
-						m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 8 , " + (long)(pPopEmpNonOverlapped.ParkingSpacesAvailable + pPopEmpOverlapped.ParkingSpacesAvailable) + ",0,0,0");
-						m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 9 , " + (long)Math.Round(pPopEmpNonOverlapped.ParkingPopulation + pPopEmpOverlapped.ParkingPopulation) + ",0,0,0");
-						m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 10 , " + (long)Math.Round(pPopEmpNonOverlapped.ParkingEmployment + pPopEmpOverlapped.ParkingEmployment) + ",0,0,0");
+						await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 8 , " + (long)(pPopEmpNonOverlapped.ParkingSpacesAvailable + pPopEmpOverlapped.ParkingSpacesAvailable) + ",0,0,0");
+						await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 9 , " + (long)Math.Round(pPopEmpNonOverlapped.ParkingPopulation + pPopEmpOverlapped.ParkingPopulation) + ",0,0,0");
+						await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + ", " + pOriginTransitStop.StopID + ", " + intTP + ", 10 , " + (long)Math.Round(pPopEmpNonOverlapped.ParkingEmployment + pPopEmpOverlapped.ParkingEmployment) + ",0,0,0");
 					}
+
 				}
 
 				if (mSettings.TBESTModelParameters.RunParcelSEAssign)
@@ -1051,8 +1053,8 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						if (nitem.GroupCode > 0)
 						{
 							if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-								m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + "," + k + "," + nitem.DORCode + "," + nitem.StructSqFeet + "," + nitem.Population + "," + Convert.ToInt32(nitem.Trips) + "," + nitem.DwellingUnits + "," + nitem.LandArea);
-							
+								await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + "," + k + "," + nitem.DORCode + "," + nitem.StructSqFeet + "," + nitem.Population + "," + Convert.ToInt32(nitem.Trips) + "," + nitem.DwellingUnits + "," + nitem.LandArea);
+
 							pParcelGroupSummaryItems.AddtoSummary(pParcelSummaryItemsNonOverlapped.List[zz], mSettings.ModelScenario.TransitSystem.ParcelTripRates, false);
 						}
 					}
@@ -1062,7 +1064,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						for (int zz = 0, loopTo2 = pParcelGroupSummaryItems.List.Count - 1; zz <= loopTo2; zz++)
 						{
 							nitem = pParcelGroupSummaryItems.List[zz];
-							m_objParcelGroupOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + nitem.GroupCode.ToString() + ",0," + nitem.Population.ToString() + "," + Convert.ToInt32(nitem.Trips).ToString() + "," + nitem.DwellingUnits.ToString() + ",0");
+							await m_objParcelGroupOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + "," + k.ToString() + "," + nitem.GroupCode.ToString() + ",0," + nitem.Population.ToString() + "," + Convert.ToInt32(nitem.Trips).ToString() + "," + nitem.DwellingUnits.ToString() + ",0");
 						}
 					}
 
@@ -1072,7 +1074,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						if (nitem.GroupCode > 0)
 						{
 							if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-								m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + ",5," + nitem.DORCode + "," + nitem.StructSqFeet + "," + nitem.Population + "," + Convert.ToInt32(nitem.Trips) + "," + nitem.DwellingUnits + "," + nitem.LandArea);
+								await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + ",5," + nitem.DORCode + "," + nitem.StructSqFeet + "," + nitem.Population + "," + Convert.ToInt32(nitem.Trips) + "," + nitem.DwellingUnits + "," + nitem.LandArea);
 							pOverlapParcelGroupSummaryItems.AddtoSummary(pParcelSummaryItemsOverlapped.List[zz], mSettings.ModelScenario.TransitSystem.ParcelTripRates, false);
 						}
 					}
@@ -1082,16 +1084,17 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						for (int zz = 0, loopTo4 = pOverlapParcelGroupSummaryItems.List.Count - 1; zz <= loopTo4; zz++)
 						{
 							nitem = pOverlapParcelGroupSummaryItems.List[zz];
-							m_objParcelGroupOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + ",5," + nitem.GroupCode.ToString() + ",0," + nitem.Population.ToString() + "," + Convert.ToInt32(nitem.Trips).ToString() + "," + nitem.DwellingUnits.ToString() + ",0");
+							await m_objParcelGroupOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + pOriginTransitStop.StopID.ToString() + "," + intTP + ",5," + nitem.GroupCode.ToString() + ",0," + nitem.Population.ToString() + "," + Convert.ToInt32(nitem.Trips).ToString() + "," + nitem.DwellingUnits.ToString() + ",0");
 						}
 					}
 				}
 
+
 				if (pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues is null)
 					pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].OValues = new NetworkOpportunitySEValues();
-			
-				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue() 
-				{ 
+
+				NetworkOpportunitySEValue pOvalues = new NetworkOpportunitySEValue()
+				{
 					Population = (int)Math.Round(pPopEmpNonOverlapped.Population + pPopEmpOverlapped.Population),
 					EmployService = (int)Math.Round(pPopEmpNonOverlapped.ServiceEmployment + pPopEmpOverlapped.ServiceEmployment),
 					EmployIndustrial = (int)Math.Round(pPopEmpNonOverlapped.IndustrialEmployment + pPopEmpOverlapped.IndustrialEmployment),
@@ -1135,11 +1138,11 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						};
 
 						if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-							m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + "," + k.ToString() + "," + pParcelOvalue.DORCode + "," + pParcelOvalue.StructSqFeet + "," + pParcelOvalue.Population + "," + Convert.ToInt32(pParcelOvalue.Trips) + "," + pParcelOvalue.DwellingUnits + "," + pParcelOvalue.LandArea);
+							await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + "," + k.ToString() + "," + pParcelOvalue.DORCode + "," + pParcelOvalue.StructSqFeet + "," + pParcelOvalue.Population + "," + Convert.ToInt32(pParcelOvalue.Trips) + "," + pParcelOvalue.DwellingUnits + "," + pParcelOvalue.LandArea);
 
 						pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].ParcelOvalues.List.Add(pParcelOvalue);
 					}
-			
+
 					for (int zz = 0, loopTo6 = pOverlapParcelGroupSummaryItems.List.Count - 1; zz <= loopTo6; zz++)
 					{
 						nitem = pOverlapParcelGroupSummaryItems.List[zz];
@@ -1155,19 +1158,15 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							GroupCode = nitem.GroupCode
 						};
 						if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-							m_objParcelOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + ",5," + pParcelOvalue.DORCode + "," + pParcelOvalue.StructSqFeet + "," + pParcelOvalue.Population + "," + Convert.ToInt32(pParcelOvalue.Trips) + "," + pParcelOvalue.DwellingUnits + "," + pParcelOvalue.LandArea);
+							await m_objParcelOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID + "," + pOriginTransitStop.StopID + "," + intTP + ",5," + pParcelOvalue.DORCode + "," + pParcelOvalue.StructSqFeet + "," + pParcelOvalue.Population + "," + Convert.ToInt32(pParcelOvalue.Trips) + "," + pParcelOvalue.DwellingUnits + "," + pParcelOvalue.LandArea);
 
 						pOriginTransitStop.TimePeriods.List[(int)iTimePeriod].ParcelOvalues.List.Add(pParcelOvalue);
 					}
 
 				}
-				
-
 				m_O2OveralappingSE2 = pPopEmpOverlapped2;
 				m_O2NonOveralappingSE2 = pPopEmpNonOverlapped2;
 			}
-
-
 			catch (Exception ex)
 			{
 				MessageBox.Show("Error Building Accessible Stops. To view error details, navigate to the TBEST log file at File->Settings->TBEST Log.", "TBEST Model Run", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1178,7 +1177,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 			return BuildAccessibleStopsO2Ret;
 		}
 
-		private void BuildOverlapDestinationsAccessibleStops(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
+		private async Task BuildOverlapDestinationsAccessibleStops(SystemTimePeriod iTimePeriod, TransitStop pOriginTransitStop)
 		{
 
 			try
@@ -1196,8 +1195,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 				if (mSettings.TBESTModelParameters.WriteTempTableRecords)
 				{
-					m_objOvalueTextStream.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", 3, " + bytOverlapPCT.ToString() + ",0,0,0");
-					m_objOvalueTextStream.Flush();
+
+					await m_objOvalueTextStream.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + ", " + pOriginTransitStop.StopID.ToString() + ", " + intTP + ", 3, " + bytOverlapPCT.ToString() + ",0,0,0");
+					//m_objOvalueTextStream.Flush();
 				}
 			}
 
@@ -1248,41 +1248,44 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 			try
 			{
-				m_objOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\O_VALUES.txt", true, false);
+
+				m_objOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\O_VALUES.txt", true, false, true);
 				if (m_objOvalueTextStream is null)
 				{
 					mSettings.CancelProcess = true;
 					return InitializeModelTextFilesRet;
 				}
-				m_objOvalueTextStream.AutoFlush = true;
-				m_objBoardingsTS = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt", true, false);
+
+				m_objBoardingsTS = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt", true, false, true);
 				if (m_objBoardingsTS is null)
 				{
 					mSettings.CancelProcess = true;
 					return InitializeModelTextFilesRet;
 				}
-				m_objBoardingsTS.AutoFlush = true;
-				m_objTransfers = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\TRANSFERS.txt", true, false);
+
+				m_objTransfers = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\TRANSFERS.txt", true, false, true);
+
 				if (m_objTransfers is null)
 				{
 					mSettings.CancelProcess = true;
 					return InitializeModelTextFilesRet;
 				}
-				m_objTransfers.AutoFlush = true;
-				m_objParcelOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_OVALUES.txt", true, false);
+
+				m_objParcelOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_OVALUES.txt", true, false, true);
 				if (m_objParcelOvalueTextStream is null)
 				{
 					mSettings.CancelProcess = true;
 					return InitializeModelTextFilesRet;
 				}
-				m_objParcelOvalueTextStream.AutoFlush = true;
-				m_objParcelGroupOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_GROUP_OVALUES.txt", true, false);
+
+				m_objParcelGroupOvalueTextStream = OpenStream(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_GROUP_OVALUES.txt", true, false, true);
+
 				if (m_objParcelGroupOvalueTextStream is null)
 				{
 					mSettings.CancelProcess = true;
 					return InitializeModelTextFilesRet;
 				}
-				m_objParcelGroupOvalueTextStream.AutoFlush = true;
+
 				InitializeModelTextFilesRet = true;
 			}
 
@@ -1298,7 +1301,6 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 		public async Task<bool> RunTBESTModel(ModelSettings pModelSettings)
 		{
 			bool RunTBESTModelRet = false;
-
 			string sTimePeriod;
 
 			try
@@ -1309,12 +1311,12 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 				var pMarketAssessment = new ModelMarketAssessmentFunctions();
 
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Model Run Began:" + Convert.ToString(DateTime.Now));
-				mSettings.ModelScenario.ScenarioLog.WriteLine("");
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Model Parameters ***");
-				mSettings.ModelScenario.ScenarioLog.WriteLine("Model Name: " + mSettings.ModelScenario.ModelName);
-				mSettings.TBESTModelParameters.WriteModelParameters(mSettings.ModelScenario.ScenarioLog);
-				mSettings.ModelScenario.ScenarioLog.WriteLine("");
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Model Run Began:" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("");
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Model Parameters ***");
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("Model Name: " + mSettings.ModelScenario.ModelName);
+				await mSettings.TBESTModelParameters.WriteModelParameters(mSettings.ModelScenario.ScenarioLog);
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("");
 
 				if (await ReturnRecordCount("growthrate", "Tract", "SCEN_ID = " + mSettings.ModelScenario.ScenarioID, m_SQLConnection) == 0)
 				{
@@ -1329,8 +1331,8 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				Cursor.Current = Cursors.WaitCursor;
 
 				mSettings.CancelProcess = false;
-
 				m_FareLookUp = new FareLookup(mSettings.ModelScenario, mSettings.TBESTModelParameters);
+
 				List<string> strNotificationList =
 				[
 					"Indexing Stops",
@@ -1345,6 +1347,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					sTimePeriod = LookupTimePeriod(t);
 					strNotificationList.Add(sTimePeriod + " Model");
 				}
+
 				string[] strNotificationList2 = strNotificationList.ToArray();
 				mSettings.CancelForm.InitializeList(ref strNotificationList2);
 
@@ -1356,7 +1359,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				if (mSettings.CancelProcess)
 					goto cleanup;
 
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Stop Indexing Completed :" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Stop Indexing Completed :" + Convert.ToString(DateTime.Now));
 				mSettings.CancelForm.NotificationUpdate();
 
 				if (!mSettings.TBESTModelParameters.AssignAllSERecords)
@@ -1380,22 +1383,23 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					await ExecuteQuery(m_SQLConnection, "DELETE FROM TRANSFERS WHERE SCEN_ID = " + mSettings.ModelScenario.ScenarioID + " AND (" + strDropQuery + ")");
 				}
 
-				await NetworkAccessibleFunctions.LoadPointCollection(mSettings.ModelScenario);
+				mSettings.ModelScenario.StopPoints = await NetworkAccessibleFunctions.LoadPointCollection(mSettings.ModelScenario);
 
-				await NetworkAccessibleFunctions.CalculateStopDistances(mSettings.ModelScenario, mSettings.TBESTModelParameters, mSettings.CancelForm, mSettings.ModelProgressBar, mSettings.ModelStatusBar);
-				
+				bool val = await NetworkAccessibleFunctions.CalculateStopDistances(mSettings.ModelScenario, mSettings.TBESTModelParameters, mSettings.CancelForm, mSettings.ModelProgressBar, mSettings.ModelStatusBar);
+				mSettings.CancelProcess = !val;
 				SystemTables pSystemTables = new SystemTables();
 				await pSystemTables.LoadAsync(mSettings.ModelScenario.TransitSystem, ReturnModelTables: false);
 
 				await RebuildClusteredIndexes(m_SQLConnection);
 				Application.DoEvents();
+
 				if (mSettings.CancelProcess)
 					goto cleanup;
-				
+
 				mSettings.CancelForm.NotificationUpdate();
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Stop Indexing Completed :" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Stop Indexing Completed :" + Convert.ToString(DateTime.Now));
 				mSettings.ModelScenario.TransitSystem.CloseConnection();
-				
+
 				if (mSettings.ModelScenario.TransitSystem.ValidationYear != "0")
 				{
 					mSettings.ModelScenario.TransitSystem.ParcelTripRates = await TripGenerationRates.LoadParcelTripRatesfromExcel(mSettings.ModelScenario.TransitSystem, mSettings.ModelScenario.TransitSystem.SourcePath + @"\Model\" + mSettings.ModelScenario.ModelName);
@@ -1404,9 +1408,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				{
 					mSettings.ModelScenario.TransitSystem.ParcelTripRates = await TripGenerationRates.LoadParcelTripRatesfromExcel(mSettings.ModelScenario.TransitSystem, m_BaseLayerPath + @"\Models\" + mSettings.ModelScenario.ModelName);
 				}
-				
-				await pMarketAssessment.GeneratePopEmpNumbers(mSettings.ModelScenario, mSettings.TBESTModelParameters, mSettings.CancelForm, mSettings.ModelProgressBar, mSettings.ModelStatusBar, m_SQLConnection);
-				
+
+				val = await pMarketAssessment.GeneratePopEmpNumbers(mSettings.ModelScenario, mSettings.TBESTModelParameters, mSettings.CancelForm, mSettings.ModelProgressBar, mSettings.ModelStatusBar, m_SQLConnection);
+				mSettings.CancelProcess = !val;
 				mSettings.ModelScenario.TransitSystem.CloseConnection();
 
 				DetachAllSQLiteConnections();
@@ -1415,7 +1419,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				if (mSettings.CancelProcess)
 					goto cleanup;
 				mSettings.CancelForm.NotificationUpdate();
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Socio-Economic Data Update Completed :" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Socio-Economic Data Update Completed :" + Convert.ToString(DateTime.Now));
 
 				var pModelVal = new ModelValidation(mSettings.ModelScenario);
 				pModelVal.ProgressBar = mSettings.ModelProgressBar;
@@ -1423,7 +1427,8 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				pModelVal.ModelParameters = mSettings.TBESTModelParameters;
 				await pModelVal.CalculateValidationbyCollection(false, !(await mSettings.ModelScenario.TransitSystem.IsModelValidated()), m_SQLConnection);
 
-				if (await mSettings.ModelScenario.LoadTransitNetwork(TBESTScenario.LoadTypes.Routes,mSettings.TBESTModelParameters.TimePeriods, mSettings.ModelProgressBar, mSettings.ModelStatusBar) == false)
+
+				if (await mSettings.ModelScenario.LoadTransitNetwork(TBESTScenario.LoadTypes.Routes, mSettings.TBESTModelParameters.TimePeriods, mSettings.ModelProgressBar, mSettings.ModelStatusBar) == false)
 				{
 					mSettings.CancelProcess = true;
 					goto cleanup;
@@ -1463,7 +1468,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				}
 
 				mSettings.CancelForm.NotificationUpdate();
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Compiled Network:" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Compiled Network:" + Convert.ToString(DateTime.Now));
 				int intUseMemory = 1;
 
 				foreach (TransitPattern pRoute in mSettings.ModelScenario.RoutePatterns.List)
@@ -1481,20 +1486,20 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					}
 				}
 
-				System.IO.StreamWriter oWrite;
-				oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\DirectBoardings.csv", true);
-				oWrite.WriteLine("StopID,TimePeriod,Variable,Value,Coeff,EquationValue");
+				StreamWriter oWrite;
+				oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\DirectBoardings.csv", true, false, true);
+				await oWrite.WriteLineAsync("StopID,TimePeriod,Variable,Value,Coeff,EquationValue");
 				oWrite.Close();
 
-				oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\TransferBoardings.csv", true);
-				oWrite.WriteLine("StopID,TimePeriod,Variable,Value,Coeff,EquationValue");
+				oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\TransferBoardings.csv", true, false, true);
+				await oWrite.WriteLineAsync("StopID,TimePeriod,Variable,Value,Coeff,EquationValue");
 				oWrite.Close();
 				bool boolValidated = await mSettings.ModelScenario.TransitSystem.IsModelValidated();
-		
+
 				string argoutDir = mSettings.ModelScenario.LocalEditPath;
 				int argnRow = mSettings.ModelScenario.StopIDList.GetLength(0);
 				TBESTScenario.LoadTypes argiEnumValues = (TBESTScenario.LoadTypes)((int)TBESTScenario.LoadTypes.TimePeriods + (int)TBESTScenario.LoadTypes.Transfers + (int)TBESTScenario.LoadTypes.NeigborStops + (int)TBESTScenario.LoadTypes.Parcels);
-		
+
 				foreach (SystemTimePeriod t in mSettings.TBESTModelParameters.TimePeriods)
 				{
 
@@ -1505,7 +1510,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					m_ImpedanceSparseMatrix = new CSparseMatrix();
 					m_DecaySparseMatrix = new CSparseMatrix();
-		
+
 					m_ImpedanceSparseMatrix.initMat(ref argnRow, ref argnRow, ref intUseMemory, ref argoutDir, false);
 					m_DecaySparseMatrix.initMat(ref argnRow, ref argnRow, ref intUseMemory, ref m_DecayMatrixPath, false);
 
@@ -1513,10 +1518,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						goto cleanup;
 
 					string TransferTempTableName = await StoredProcedures.CreateTransferFilter(mSettings.ModelScenario.ScenarioID, mSettings.TBESTModelParameters.TransferWalkDistance, t, m_SQLConnection, TransfersDisallowedOntheSame.Route);
-					string N2TempTableName = await StoredProcedures.CreateNeightborStopFilter(mSettings.ModelScenario.ScenarioID, mSettings.TBESTModelParameters.NeighborDistance, t, m_SQLConnection,NeighborStopsFilter.OntheSameRouteButNotOnSamePattern);
+					string N2TempTableName = await StoredProcedures.CreateNeightborStopFilter(mSettings.ModelScenario.ScenarioID, mSettings.TBESTModelParameters.NeighborDistance, t, m_SQLConnection, NeighborStopsFilter.OntheSameRouteButNotOnSamePattern);
 					string N3TempTableName = await StoredProcedures.CreateNeightborStopFilter(mSettings.ModelScenario.ScenarioID, mSettings.TBESTModelParameters.NeighborDistance, t, m_SQLConnection, NeighborStopsFilter.NotontheSameRoute);
 
-					if (await mSettings.ModelScenario.LoadTransitNetwork(argiEnumValues,new List<SystemTimePeriod>() {t}, mSettings.ModelProgressBar, mSettings.ModelStatusBar) == false)
+					if (await mSettings.ModelScenario.LoadTransitNetwork(argiEnumValues, new List<SystemTimePeriod>() { t }, mSettings.ModelProgressBar, mSettings.ModelStatusBar) == false)
 					{
 						mSettings.CancelProcess = true;
 						goto cleanup;
@@ -1529,7 +1534,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					NetworkAccessibleFunctions.CleanTransfers(mSettings.ModelScenario, t);
 					if (mSettings.TBESTModelParameters.WriteTempTableRecords)
-						WriteTransfers(t);
+						await WriteTransfers(t);
 
 					if (mSettings.ModelProgressBar is not null)
 					{
@@ -1556,7 +1561,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					if (mSettings.ModelStatusBar is not null)
 						mSettings.ModelStatusBar.Text = "Summarizing Accessibility (" + sTimePeriod + ")...";
-					
+
 					Application.DoEvents();
 					if (m_ImpedanceSparseMatrix.SmallMatrix == false)
 					{
@@ -1568,6 +1573,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						m_DecaySparseMatrix.CommitAll();
 						m_DecaySparseMatrix.EnableSpeedyReadMode();
 					}
+
 					InitiateModel.mParcelOvaluesTotalList.Clear();
 					InitiateModel.mParcelItemsTotalList.Clear();
 					Application.DoEvents();
@@ -1578,7 +1584,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						{
 							InitiateModel.mParcelOvaluesTotalList.Add([0f, 0f, 0f, 0f, 0f, 0f, 0f]);
 							pParcelItem = new ParcelItem()
-							{ 
+							{
 								AttractionTrips = pTransitStop.ParcelItems.ReturnTotal(ParcelVariable.Trips),
 								Population = pTransitStop.ParcelItems.ReturnTotal(ParcelVariable.TotalPopulation),
 								DwellingUnits = pTransitStop.ParcelItems.ReturnTotal(ParcelVariable.DwellingUnits),
@@ -1587,12 +1593,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 								Trips = pTransitStop.ParcelItems.TotalTrips,
 								ProductionTrips = pTransitStop.ParcelItems.ReturnTotal(ParcelVariable.ProductionTrips)
 							};
-							
+
 							InitiateModel.mParcelItemsTotalList.Add(pParcelItem);
-
-							for (int i = pTransitStop.ParcelItems.List.Count - 1; i >= 0; i -= 1)
-								pTransitStop.ParcelItems.List.RemoveAt(i);
-
+							pTransitStop.ParcelItems.List.Clear();
 						}
 					}
 					Application.DoEvents();
@@ -1616,29 +1619,25 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							SetLocationAccessiblityArray(pTransitStop, t);
 
 							if (intLocationArrayO2 is not null)
-								BuildAccessibleStopsO2(t, pTransitStop);
+								await BuildAccessibleStopsO2(t, pTransitStop);
 							if (intLocationArrayO4 is not null)
 							{
-								BuildAccessibleStopsO4(t, pTransitStop);
-								BuildAccessibleStopsO6(t, pTransitStop);
+								await BuildAccessibleStopsO4(t, pTransitStop);
+								await BuildAccessibleStopsO6(t, pTransitStop);
 							}
 
 							if (intLocationArrayOriginMarketOverlap is not null)
-								BuildOverlapDestinationsAccessibleStops(t, pTransitStop);
+								await BuildOverlapDestinationsAccessibleStops(t, pTransitStop);
 
 							InitiateModel.mParcelOvaluesTotalList[pTransitStop.StopIndex - 1] = pTransitStop.TimePeriods.List[TPindex].ParcelOvalues.ReturnParcelTripTotals();
 
 							if (pTransitStop.TimePeriods.List[TPindex].ParcelOvalues is not null && pTransitStop.TimePeriods.List[TPindex].ParcelOvalues.List.Count > 0)
 							{
-								for (int i = pTransitStop.TimePeriods.List[TPindex].ParcelOvalues.List.Count - 1; i >= 0; i -= 1)
-									pTransitStop.TimePeriods.List[TPindex].ParcelOvalues.List.RemoveAt(i);
+								pTransitStop.TimePeriods.List[TPindex].ParcelOvalues.List.Clear();
 							}
 							if (pTransitStop.TimePeriods.List[TPindex].NeighboringStops is not null && pTransitStop.TimePeriods.List[TPindex].NeighboringStops.List.Count > 0)
 							{
-								for (int i = pTransitStop.TimePeriods.List[TPindex].NeighboringStops.List.Count - 1; i >= 0; i -= 1)
-								{
-									pTransitStop.TimePeriods.List[TPindex].NeighboringStops.List.RemoveAt(i);
-								}
+								pTransitStop.TimePeriods.List[TPindex].NeighboringStops.List.Clear();
 							}
 
 							pTransitStop.TimePeriods.List[TPindex].NeighboringStops = null;
@@ -1651,12 +1650,12 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					TransitRoute pRouteGroup;
 
-					m_objOvalueTextStream.Flush();
-					m_objParcelOvalueTextStream.Flush();
-					m_objParcelGroupOvalueTextStream.Flush();
-					m_objTransfers.Flush();
+					await m_objOvalueTextStream.FlushAsync();
+					await m_objParcelOvalueTextStream.FlushAsync();
+					await m_objParcelGroupOvalueTextStream.FlushAsync();
+					await m_objTransfers.FlushAsync();
 
-					oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\DirectBoardings.csv", false);
+					oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\DirectBoardings.csv", false, false, true);
 
 					foreach (TransitPattern pEstRoute in mSettings.ModelScenario.RoutePatterns.List)
 					{
@@ -1674,9 +1673,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							pBRTAdjustment.CalculateBRTAdjustment();
 							pBRTAdjustment.CalculateValidatedBRTAdjustment();
 							pRouteGroup.BRTAdjustmentFactor = 1f + (pBRTAdjustment.TotalAdjusment - pBRTAdjustment.TotalValidatedAdjusment);
+
 						}
 
-						if (TBESTEquations.CalculateBoardings(pEstRoute, t, oWrite, mSettings.DirectBoardingsCoefficients, true, pRouteGroup, mSettings.TBESTModelParameters, mSettings.ModelScenario) == false)
+						if (await TBESTEquations.CalculateBoardings(pEstRoute, t, oWrite, mSettings.DirectBoardingsCoefficients, true, pRouteGroup, mSettings.TBESTModelParameters, mSettings.ModelScenario) == false)
 						{
 							MessageBox.Show("Unable to execute the " + mSettings.ModelName + " equation.  Please make sure the model is correctly referenced and compiled.", "TBEST Model Run Canceled...", MessageBoxButtons.OK, MessageBoxIcon.Information);
 							mSettings.CancelProcess = true;
@@ -1697,18 +1697,18 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						m_DecaySparseMatrix.SetColAccess(ref argboolAccess1);
 					}
 
-					oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\TransferBoardings.csv", false);
+					oWrite = OpenStream(mSettings.ModelScenario.ScenarioPath + @"\Log\TransferBoardings.csv", false, false, true);
 
 					if (mSettings.ModelProgressBar is not null)
 						mSettings.ModelProgressBar.Value = 0;
-					
+
 					foreach (TransitPattern pRoute in mSettings.ModelScenario.RoutePatterns.List)
 					{
 						foreach (TransitStop pTransitStop in pRoute.PatternTransitStops.List)
 						{
 							mSettings.ModelProgressBar?.Increment(1);
 
-							BuildIncomingAccessibleStops(t, pTransitStop);
+							await BuildIncomingAccessibleStops(t, pTransitStop);
 
 							Application.DoEvents();
 							if (mSettings.CancelProcess)
@@ -1718,10 +1718,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							}
 						}
 						pRouteGroup = mSettings.ModelScenario.Routes.List[pRoute.ParentRouteIndex];
-						
-						if (TBESTEquations.CalculateBoardings(pRoute, t, oWrite, mSettings.TransferBoardingsCoefficients, false, pRouteGroup, mSettings.TBESTModelParameters, mSettings.ModelScenario) == false)
+
+						if (await TBESTEquations.CalculateBoardings(pRoute, t, oWrite, mSettings.TransferBoardingsCoefficients, false, pRouteGroup, mSettings.TBESTModelParameters, mSettings.ModelScenario) == false)
 						{
-							MessageBox.Show("Unable to execute the " + mSettings.ModelName + " equation.  Please make sure the model is correctly referenced and compiled.",  "TBEST Model Run Canceled...", MessageBoxButtons.OK,MessageBoxIcon.Exclamation);
+							MessageBox.Show("Unable to execute the " + mSettings.ModelName + " equation.  Please make sure the model is correctly referenced and compiled.", "TBEST Model Run Canceled...", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 							mSettings.CancelProcess = true;
 							oWrite.Close();
 							goto cleanup;
@@ -1733,7 +1733,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					await ExecuteQuery(m_SQLConnection, "DELETE FROM ANALYSIS_BOARDINGS WHERE TIMEPERIOD = " + intTP + " AND SCEN_ID = " + mSettings.ModelScenario.ScenarioID);
 					await ExecuteQuery(m_SQLConnection, "DELETE FROM ANALYSIS_PERFORMANCE WHERE TIMEPERIOD = " + intTP + " AND SCEN_ID = " + mSettings.ModelScenario.ScenarioID);
 
-					if (TBESTEquations.PopulateBoardings(t, m_objBoardingsTS, mSettings.ModelScenario, mSettings.TBESTModelParameters) == false)
+					if (await TBESTEquations.PopulateBoardings(t, m_objBoardingsTS, mSettings.ModelScenario, mSettings.TBESTModelParameters) == false)
 					{
 						MessageBox.Show("TBEST was unable to populate estimated boardings information.", "TBEST Model Run", MessageBoxButtons.OK, MessageBoxIcon.Information);
 						mSettings.CancelProcess = true;
@@ -1760,13 +1760,13 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					m_objBoardingsTS.Close();
 
-					await BulkInsert(m_SQLConnection, "ANALYSIS_BOARDINGS",mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt", false, ",");
+					await BulkInsert(m_SQLConnection, "ANALYSIS_BOARDINGS", mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt", false, ",");
 
 					await ExecuteQuery(m_SQLConnection, "DELETE FROM ANALYSIS_BOARDINGS WHERE SCEN_ID = " + mSettings.ModelScenario.OriginalScenarioID + " AND TIMEPERIOD = " + intTP);
 
-				    await CopyDatabaseRecords("ANALYSIS_BOARDINGS", mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
-			
-					System.IO.File.Delete(mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt");
+					await CopyDatabaseRecords("ANALYSIS_BOARDINGS", mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
+
+					File.Delete(mSettings.ModelScenario.LocalEditPath + @"\ANALYSIS_BOARDINGS.txt");
 
 					m_objOvalueTextStream.Close();
 					m_objParcelOvalueTextStream.Close();
@@ -1783,14 +1783,14 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 						await ExecuteQuery(m_SQLConnection, "DELETE FROM O_VALUES WHERE SCEN_ID = " + mSettings.ModelScenario.OriginalScenarioID + " AND TIMEPERIOD = " + intTP);
 						await ExecuteQuery(m_SQLConnection, "DELETE FROM TRANSFERS WHERE SCEN_ID = " + mSettings.ModelScenario.OriginalScenarioID + " AND TIMEPERIOD = " + intTP);
 						await ExecuteQuery(m_SQLConnection, "DELETE FROM PARCEL_OVALUES WHERE SCEN_ID = " + mSettings.ModelScenario.OriginalScenarioID + " AND TIMEPERIOD = " + intTP);
-						await CopyDatabaseRecords("O_VALUES",  mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
-						await CopyDatabaseRecords("TRANSFERS",  mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
-						await CopyDatabaseRecords("PARCEL_OVALUES",  mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
+						await CopyDatabaseRecords("O_VALUES", mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
+						await CopyDatabaseRecords("TRANSFERS", mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
+						await CopyDatabaseRecords("PARCEL_OVALUES", mSettings.ModelScenario.ScenarioID, mSettings.ModelScenario.OriginalScenarioID, new SQLiteCommand(m_SQLConnection), " AND TIMEPERIOD = " + intTP);
 
 
-						System.IO.File.Delete(mSettings.ModelScenario.LocalEditPath + @"\O_VALUES.txt");
-						System.IO.File.Delete(mSettings.ModelScenario.LocalEditPath + @"\TRANSFERS.txt");
-						System.IO.File.Delete(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_OVALUES.txt");
+						File.Delete(mSettings.ModelScenario.LocalEditPath + @"\O_VALUES.txt");
+						File.Delete(mSettings.ModelScenario.LocalEditPath + @"\TRANSFERS.txt");
+						File.Delete(mSettings.ModelScenario.LocalEditPath + @"\PARCEL_OVALUES.txt");
 
 					}
 
@@ -1807,7 +1807,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					if (await DoesTableExist(N2TempTableName, m_SQLConnection)) await ExecuteQuery(m_SQLConnection, "Drop Table " + N2TempTableName);
 
 
-					mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario " + sTimePeriod + " Model Completed :" + Convert.ToString(DateTime.Now));
+					await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario " + sTimePeriod + " Model Completed :" + Convert.ToString(DateTime.Now));
 
 					mSettings.CancelForm.NotificationUpdate();
 					Application.DoEvents();
@@ -1819,7 +1819,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				await ExecuteQuery(m_SQLConnection, "UPDATE SCENARIOS SET [EMP_RUN] = '" + mSettings.ModelScenario.EmploymentType.ToString() + "' WHERE SCEN_ID = " + mSettings.ModelScenario.OriginalScenarioID);
 				await ExecuteQuery(m_SQLConnection, "DELETE FROM STOP_DISTANCE WHERE SCEN_ID = " + mSettings.ModelScenario.ScenarioID);
 
-				mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Model Run Complete:" + Convert.ToString(DateTime.Now));
+				await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Model Run Complete:" + Convert.ToString(DateTime.Now));
 				mSettings.CancelForm.NotificationUpdate();
 
 			cleanup:
@@ -1839,10 +1839,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 				if (mSettings.ModelProgressBar is not null)
 					mSettings.ModelProgressBar.Visible = false;
-				
+
 				if (mSettings.CancelProcess)
 				{
-					mSettings.ModelScenario.ScenarioLog.WriteLine("*** Scenario Model Run Canceled:" + Convert.ToString(DateTime.Now));
+					await mSettings.ModelScenario.ScenarioLog.WriteLineAsync("*** Scenario Model Run Canceled:" + Convert.ToString(DateTime.Now));
 					mSettings.ModelScenario.ScenarioID = 0;
 					mSettings.CancelForm.NotificationCancel();
 					m_objOvalueTextStream?.Close();
@@ -1868,7 +1868,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 		}
 
-		private void WriteTransfers(SystemTimePeriod bytTimePeriod)
+		private async Task WriteTransfers(SystemTimePeriod bytTimePeriod)
 		{
 			string strOriginID;
 			TransferStops pOriginTransferstops;
@@ -1886,10 +1886,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 					if (pOriginTransferstops is not null)
 					{
 						xCount = pOriginTransferstops.List.Count - 1;
-						for (x = xCount; x >= 0; x += -1)
+						for (x = xCount; x >= 0; x--)
 						{
 							pOriginTransferStop = pOriginTransferstops.List[x];
-							m_objTransfers.WriteLine(mSettings.ModelScenario.ScenarioID.ToString() + "," + strOriginID + "," + pOriginTransferStop.StopID.ToString() + "," + intTP);
+							await m_objTransfers.WriteLineAsync(mSettings.ModelScenario.ScenarioID.ToString() + "," + strOriginID + "," + pOriginTransferStop.StopID.ToString() + "," + intTP);
 						}
 					}
 				}
@@ -1964,6 +1964,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 					if (pProcessAtts.Frequency > 0 & pProcessstop.StopIndex != 0)
 					{
+
 						if (bytCellValue == 0 | bytCellValue > pModelProcessStop.Impedance)
 						{
 							if (pModelProcessStop.TransferArray is not null)
@@ -1978,12 +1979,14 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 
 						if (string.IsNullOrEmpty(pProcessstop.TimePoint) & pProcessstop.Interlined == false & (pScenarioModelParameters.TransferOption == TransferSettings.StationsOnly | pScenarioModelParameters.TransferOption == TransferSettings.StationsandTimepoints))
 						{
-							x++; continue;
+							x++;
+							continue;
 						}
 
 						if (pScenarioModelParameters.MaxTransfers == pModelProcessStop.TransferCount & pProcessstop.Interlined == false)
 						{
-							x++; continue;
+							x++;
+							continue;
 						}
 
 						if (pModelProcessStop.TransferCount <= pScenarioModelParameters.MaxTransfers)
@@ -2005,7 +2008,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 											{
 												pstopa = new ProcessStopAccessiblity();
 												pModelStopProcess_1 = new ModelStopProcess()
-												{ 
+												{
 													Impedance = pModelProcessStop.Impedance,
 													OriginIndex = pModelProcessStop.OriginIndex,
 													RoutePattern = pRouteinLoop,
@@ -2029,10 +2032,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 												if (pScenarioModelParameters.TransferOption == TransferSettings.StationsOnly | string.IsNullOrEmpty(pGetAttTransfer.TimePoint) & pScenarioModelParameters.TransferOption == TransferSettings.StationsandTimepoints)
 													continue;
 												dTransferWaitTime = 30f;
-												
+
 												intRouteHeadway = Convert.ToInt16(pScenario.Routes.List[pRouteinLoop.ParentRouteIndex].Get_DirHeadway(pRouteinLoop.DirectionCode, pScenarioModelParameters.TimePeriod));
 												dTransferWaitTime = (float)(intRouteHeadway * 0.5d);
-												
+
 											}
 											else
 											{
@@ -2042,7 +2045,7 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 											dTransferWaitTime *= pScenarioModelParameters.TransferWaitWeight;
 
 											intFWT = (short)Math.Round(pScenarioModelParameters.CalcWalkTime(pTransferStop.Distance));
-								
+
 											var pTransferRouteGroup = mRouteGroups.List[pRouteinLoop.ParentRouteIndex];
 
 											dTransferFareImpedance = mFareLookup.GetFareImpedance(pTransferRouteGroup, false);
@@ -2104,9 +2107,10 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 				{
 					if ((pRouteGroup.RouteType == TransitRouteType.Circulator | pRouteGroup.RouteType == TransitRouteType.CirculatorBRT) & pProcessstop.RouteIndex != pModelProcessStop.TransitStop.RouteIndex)
 					{
+
 						pstopa = new ProcessStopAccessiblity();
 						pModelStopProcess_1 = new ModelStopProcess()
-						{ 
+						{
 							Impedance = pModelProcessStop.Impedance,
 							OriginIndex = pModelProcessStop.OriginIndex,
 							RoutePattern = pModelProcessStop.RoutePattern,
@@ -2118,8 +2122,8 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							OriginRouteGroup = pModelProcessStop.OriginRouteGroup,
 							CurrentRouteGroupIndex = pModelProcessStop.CurrentRouteGroupIndex,
 							TripLengthSummary = (ModeTripLength)pModelProcessStop.TripLengthSummary.CloneItem()
-						}; 
-						
+						};
+
 						pstopa.ProcessStop(pModelStopProcess_1, pScenario, pScenarioModelParameters);
 					}
 				}
@@ -2378,7 +2382,9 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 							break;
 						}
 				}
+
 			}
+
 
 			pFare *= mFareGrowthRate;
 			if (pFare == 0d | mWageRate == 0d | mBoolEnforceFareImpedance == false)
@@ -2653,8 +2659,8 @@ namespace TBESTModelEquation.TBESTRidershipForecasting
 		}
 		public float Population
 		{
-			get {return mPopuation;}
-			set	{mPopuation = value;}
+			get { return mPopuation; }
+			set { mPopuation = value; }
 		}
 		public float IndustrialEmployment
 		{
